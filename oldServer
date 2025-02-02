@@ -1,0 +1,221 @@
+// const express = require("express");
+// const mysql = require("mysql2");
+// const cors = require("cors");
+// const bcrypt = require("bcryptjs");
+
+// const app = express();
+// const port = process.env.PORT || 5001;
+
+// app.use(cors());
+// app.use(express.json());
+
+// // Create a connection to the MySQL database
+// const db = mysql.createConnection({
+//   host: "localhost",
+//   user: "root",
+//   password: "Password",
+//   database: "schedules",
+//   port: 3306,
+// });
+
+// // Connect to the database
+// db.connect((err) => {
+//   if (err) {
+//     console.error("Error connecting to the database:", err);
+//     return;
+//   }
+//   console.log("Connected to the MySQL database");
+// });
+
+// // Define a simple route
+// app.get("/", (req, res) => {
+//   res.send("Hello World!");
+// });
+
+// // Fetch all subjects
+// app.get("/api/subjects", (req, res) => {
+//   const query = "SELECT * FROM subjects";
+//   db.query(query, (err, results) => {
+//     if (err) {
+//       console.error("Error fetching subjects:", err);
+//       res.status(500).send("Error fetching subjects");
+//       return;
+//     }
+//     res.json(results);
+//   });
+// });
+
+// // Fetch schedule for a student
+// app.get("/api/schedule", (req, res) => {
+//   const studentId = req.query.studentId;
+//   const query = `
+//     SELECT s.name AS subjectName, s.abbreviation, s.professor, s.lectureRoom, sc.day, sc.startTime, sc.endTime
+//     FROM schedule sc
+//     JOIN subjects s ON sc.subjectId = s.id
+//     WHERE sc.studentId = ?
+//   `;
+//   db.query(query, [studentId], (err, results) => {
+//     if (err) {
+//       console.error("Error fetching schedule:", err);
+//       res.status(500).send("Error fetching schedule");
+//       return;
+//     }
+//     res.json(results);
+//   });
+// });
+
+// // Add or update subjects
+// app.post("/api/subjects", (req, res) => {
+//   const {
+//     id,
+//     name,
+//     abbreviation,
+//     professor,
+//     year,
+//     trimester,
+//     credits,
+//     lectureRoom,
+//   } = req.body;
+//   const query = id
+//     ? "UPDATE subjects SET name = ?, abbreviation = ?, professor = ?, year = ?, trimester = ?, credits = ?, lectureRoom = ? WHERE id = ?"
+//     : "INSERT INTO subjects (name, abbreviation, professor, year, trimester, credits, lectureRoom) VALUES (?, ?, ?, ?, ?, ?, ?)";
+//   const params = id
+//     ? [name, abbreviation, professor, year, trimester, credits, lectureRoom, id]
+//     : [name, abbreviation, professor, year, trimester, credits, lectureRoom];
+//   db.query(query, params, (err, results) => {
+//     if (err) {
+//       console.error("Error adding/updating subject:", err);
+//       res.status(500).send("Error adding/updating subject");
+//       return;
+//     }
+//     res.json(results);
+//   });
+// });
+
+// // Add or update schedule
+// app.post("/api/schedule", (req, res) => {
+//   const { id, subjectId, day, startTime, endTime } = req.body;
+//   const query = id
+//     ? "UPDATE schedule SET subjectId = ?, day = ?, startTime = ?, endTime = ? WHERE id = ?"
+//     : "INSERT INTO schedule (subjectId, day, startTime, endTime) VALUES (?, ?, ?, ?)";
+//   const params = id
+//     ? [subjectId, day, startTime, endTime, id]
+//     : [subjectId, day, startTime, endTime];
+//   db.query(query, params, (err, results) => {
+//     if (err) {
+//       console.error("Error adding/updating schedule:", err);
+//       res.status(500).send("Error adding/updating schedule");
+//       return;
+//     }
+//     res.json(results);
+//   });
+// });
+
+// // Check if studentID is valid
+// app.post("/validateID", (req, res) => {
+//   const { studentID } = req.body;
+//   console.log("Validating studentID:", studentID); // Log the studentID
+//   const checkValidQuery = "SELECT * FROM students_school WHERE studentID = ?";
+
+//   db.query(checkValidQuery, [studentID], (err, validResults) => {
+//     if (err) {
+//       console.error("Error checking valid studentID:", err);
+//       res.status(500).send("Error checking valid studentID");
+//       return;
+//     }
+
+//     if (validResults.length === 0) {
+//       res.status(400).send("Invalid studentID");
+//       return;
+//     }
+
+//     res.send("StudentID is valid");
+//   });
+// });
+
+// // Check if studentID is valid and not already in use
+// app.post("/checkID", (req, res) => {
+//   const { studentID } = req.body;
+//   console.log("here is the request", studentID); // Log the studentID
+//   const checkInUseQuery = "SELECT * FROM students WHERE studentID = ?";
+
+//   db.query(checkInUseQuery, [studentID], (err, inUseResults) => {
+//     if (err) {
+//       console.error("Error checking studentID in use:", err);
+//       res.status(500).send("Error checking studentID in use");
+//       return;
+//     }
+
+//     if (inUseResults.length > 0) {
+//       res.status(400).send("StudentID already in use");
+//       return;
+//     }
+
+//     res.send("StudentID is free");
+//   });
+// });
+
+// // User registration endpoint
+// app.post("/signup", async (req, res) => {
+//   const { studentID, name, surname, email, password } = req.body;
+
+//   // Hash the password before storing it in the database
+//   const hashedPassword = await bcrypt.hash(password, 10);
+//   console.log("Password:", password); // Log the hashed password
+//   console.log("Hashed Password:", hashedPassword); // Log the hashed password
+
+//   const query =
+//     "INSERT INTO students (studentID, name, surname, email, password) VALUES (?, ?, ?, ?, ?)";
+//   const params = [studentID, name, surname, email, hashedPassword];
+//   db.query(query, params, (err, results) => {
+//     if (err) {
+//       console.error("Error registering user:", err);
+//       res.status(500).send("Error registering user");
+//       return;
+//     }
+//     res.json({ message: "User registered successfully", results });
+//   });
+// });
+
+// // User login endpoint
+// app.post("/login", (req, res) => {
+//   const { email, password } = req.body;
+//   console.log("Logging in user with email:", email); // Log the email
+
+//   const query = "SELECT * FROM students WHERE email = ?";
+//   db.query(query, [email], async (err, results) => {
+//     if (err) {
+//       console.error("Error fetching user:", err);
+//       res.status(500).send("Error fetching user");
+//       return;
+//     }
+//     // console.log("results", results);
+
+//     if (results.length === 0) {
+//       console.log("here1");
+//       res.status(400).send("Invalid email or password");
+//       return;
+//     }
+
+//     const user = results[0];
+//     console.log("here1", user);
+//     console.log("Type of password:", password);
+
+//     console.log("Type of password:", typeof password);
+//     console.log("Type of user.password:", typeof user.password);
+
+//     const isPasswordValid = await bcrypt.compare(password, user.password);
+
+//     if (!isPasswordValid) {
+//       console.log("here2");
+//       res.status(400).send("Invalid email or password");
+//       return;
+//     }
+
+//     res.send("Login successful");
+//   });
+// });
+
+// app.listen(port, () => {
+//   console.log(`Server is running on port: ${port}`);
+// });
