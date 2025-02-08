@@ -246,7 +246,6 @@ app.post("/login", (req, res) => {
     console.log("isPasswordValid", isPasswordValid);
 
     if (!isPasswordValid) {
-      console.log("here2");
       res.status(400).send("Invalid email or password");
       return;
     }
@@ -261,6 +260,7 @@ app.post("/sendVerificationEmail", (req, res) => {
 
   console.log("Sending verification email to:", email); // Log the email
   console.log("Generated token:", token); // Log the token
+  console.log("here2");
 
   const query = "UPDATE students SET verificationToken = ? WHERE email = ?";
   db.query(query, [token, email], (err, results) => {
@@ -282,7 +282,7 @@ app.post("/sendVerificationEmail", (req, res) => {
     });
     transporter
       .sendMail({
-        from: process.env.EMAIL_USER,
+        from: "kogojmihadrive@gmail.com",
         to: email,
         subject: "Account Verification",
         text: `Please verify your account by clicking the following link: http://localhost:5001/verify/${token}`,
@@ -371,32 +371,39 @@ app.post("/users/send-token", (req, res) => {
 
   console.log("Sending verification token to:", email); // Log the email
   console.log("Generated token:", token); // Log the token
+  console.log("herehere3", query);
 
-  const query = "UPDATE students SET verificationToken = ? WHERE email = ?";
+  // const query = "UPDATE students SET verificationToken = ? WHERE email = ?";
+  console.log("herehere3", query);
   db.query(query, [token, email], (err, results) => {
     if (err) {
       console.error("Error setting verification token:", err);
       res.status(500).send("Error setting verification token");
       return;
     }
+    console.log("Verification token set in database for:", email);
+    console.log("hereherehereherehre1");
 
     const transporter = nodemailer.createTransport({
       host: process.env.HOST,
-      port: process.env.EMAIL_PORT,
-      secure: process.env.SECURE === "true", // Convert string to boolean
+      port: parseInt(process.env.EMAIL_PORT, 10),
+      secure: process.env.SECURE === "true",
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      debug: true, // Enable debug output
+      logger: true, // Log information to console
     });
+    console.log("hereherehereherehre2");
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
+      from: "kogojmihadrive@gmail.com",
+      to: "kogojmiha@gmail.com",
       subject: "Password Reset Verification",
       text: `Please use the following token to reset your password: ${token}`,
     };
-
+    console.log("hereherehereherehre3");
     transporter.sendMail(mailOptions, (err, response) => {
       if (err) {
         console.error("Error sending verification token:", err);
@@ -408,6 +415,7 @@ app.post("/users/send-token", (req, res) => {
     });
   });
 });
+
 app.post("/users/reset-password", async (req, res) => {
   const { email, token, newPassword } = req.body;
 
