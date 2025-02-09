@@ -157,7 +157,51 @@ app.post("/validateID", (req, res) => {
     res.send("StudentID is valid");
   });
 });
+// Change Password Endpoint
+app.post("/changePassword", (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
 
+  console.log("Changing password for user with email:", email); // Log the email
+
+  const query = "SELECT * FROM students WHERE email = ?";
+  db.query(query, [email], async (err, results) => {
+    if (err) {
+      console.error("Error fetching user:", err);
+      res.status(500).send("Error fetching user");
+      return;
+    }
+
+    if (results.length === 0) {
+      res.status(400).send("Invalid email");
+      return;
+    }
+
+    const user = results[0];
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    console.log("isPasswordValid", isPasswordValid);
+
+    if (!isPasswordValid) {
+      res.status(400).send("Invalid old password");
+      return;
+    }
+
+    try {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const updateQuery = "UPDATE students SET password = ? WHERE email = ?";
+      db.query(updateQuery, [hashedPassword, email], (err, updateResults) => {
+        if (err) {
+          console.error("Error updating password:", err);
+          res.status(500).send("Error updating password");
+          return;
+        }
+        res.json({ message: "Password changed successfully" });
+      });
+    } catch (error) {
+      console.error("Error hashing new password:", error);
+      res.status(500).send("Error changing password");
+    }
+  });
+});
 // Check if studentID is valid and not already in use
 app.post("/checkID", (req, res) => {
   const { studentID } = req.body;
@@ -250,7 +294,10 @@ app.post("/login", (req, res) => {
       return;
     }
 
-    res.send("Login successful");
+    // res.send("Login successful");
+    res.json({
+      user,
+    });
   });
 });
 // Send verification email
@@ -382,7 +429,6 @@ app.post("/users/send-token", (req, res) => {
       return;
     }
     console.log("Verification token set in database for:", email);
-    console.log("hereherehereherehre1");
 
     const transporter = nodemailer.createTransport({
       host: process.env.HOST,
@@ -395,7 +441,6 @@ app.post("/users/send-token", (req, res) => {
       debug: true, // Enable debug output
       logger: true, // Log information to console
     });
-    console.log("hereherehereherehre2");
 
     const mailOptions = {
       from: "kogojmihadrive@gmail.com",
@@ -403,7 +448,6 @@ app.post("/users/send-token", (req, res) => {
       subject: "Password Reset Verification",
       text: `Please use the following token to reset your password: ${token}`,
     };
-    console.log("hereherehereherehre3");
     transporter.sendMail(mailOptions, (err, response) => {
       if (err) {
         console.error("Error sending verification token:", err);
@@ -416,12 +460,12 @@ app.post("/users/send-token", (req, res) => {
   });
 });
 
-app.post("/users/reset-password", async (req, res) => {
-  const { email, token, newPassword } = req.body;
+app.post("/reset-password/:token", async (req, res) => {
+  const { token } = req.params;
+  const { newPassword } = req.body;
 
-  const query =
-    "SELECT * FROM students WHERE email = ? AND verificationToken = ?";
-  db.query(query, [email, token], async (err, results) => {
+  const query = "SELECT * FROM students WHERE verificationToken = ?";
+  db.query(query, [token], async (err, results) => {
     if (err) {
       console.error("Error verifying token:", err);
       res.status(500).send("Error verifying token");
@@ -429,26 +473,77 @@ app.post("/users/reset-password", async (req, res) => {
     }
 
     if (results.length === 0) {
-      res.status(400).send("Invalid token or email");
+      res.status(400).send("Invalid token");
       return;
     }
 
+    const user = results[0];
     try {
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       const updateQuery =
         "UPDATE students SET password = ?, verificationToken = NULL WHERE email = ?";
-      db.query(updateQuery, [hashedPassword, email], (err, updateResults) => {
-        if (err) {
-          console.error("Error resetting password:", err);
-          res.status(500).send("Error resetting password");
-          return;
+      db.query(
+        updateQuery,
+        [hashedPassword, user.email],
+        (err, updateResults) => {
+          if (err) {
+            console.error("Error resetting password:", err);
+            res.status(500).send("Error resetting password");
+            return;
+          }
+          res.json({ message: "Password reset successfully" });
         }
-        res.json({ message: "Password reset successfully" });
-      });
+      );
     } catch (error) {
       console.error("Error hashing password:", error);
       res.status(500).send("Error resetting password");
     }
+  });
+});
+app.post("/forgotPassword", (req, res) => {
+  const { email } = req.body;
+  const token = crypto.randomBytes(20).toString("hex");
+
+  console.log("Sending password reset token to:", email); // Log the email
+  console.log("Generated token:", token); // Log the token
+
+  const query = "UPDATE students SET verificationToken = ? WHERE email = ?";
+  db.query(query, [token, email], (err, results) => {
+    if (err) {
+      console.error("Error setting verification token:", err);
+      res.status(500).send("Error setting verification token");
+      return;
+    }
+    console.log("Verification token set in database for:", email);
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.HOST,
+      port: parseInt(process.env.EMAIL_PORT, 10),
+      secure: process.env.SECURE === "true", // Convert string to boolean
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      debug: true, // Enable debug output
+      logger: true, // Log information to console
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Password Reset Request",
+      text: `Please use the following link to reset your password: http://localhost:3000/reset-password/${token}`,
+    };
+
+    transporter.sendMail(mailOptions, (err, response) => {
+      if (err) {
+        console.error("Error sending password reset email:", err);
+        res.status(500).send("Error sending password reset email");
+        return;
+      }
+      console.log("Password reset email sent:", response); // Log the response
+      res.json({ message: "Password reset email sent" });
+    });
   });
 });
 // Submit selected subjects
